@@ -1,0 +1,10 @@
+streamlit
+langchain
+openai
+python-dotenv
+tiktoken
+azure-core
+azure-ai-ml
+langchain-community
+langchain-openai
+langchain-core
