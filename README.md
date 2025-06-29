@@ -25,6 +25,12 @@ The app uses a structured prompt to guide the LLM with a focus on medical safety
 
 ---
 
+## 🔗 Live Preview
+
+🚀 Try the app here: [Live Medical Assistant Chatbot](https://healthcare-chatbot-2305.streamlit.app/)
+
+---
+
 ## 🛠️ Tech Stack
 
 | Tool | Purpose |
