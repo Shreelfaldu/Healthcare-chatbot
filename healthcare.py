@@ -156,7 +156,7 @@ if user_input := st.chat_input("Ask your medical question..."):
             st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    # Auto-save chat
+    # Auto-save chat final version
     chat_path = f"chat_history/{st.session_state.chat_id}/chat.json"
     with open(chat_path, "w") as f:
         json.dump(st.session_state.messages, f, indent=2)
