@@ -3,12 +3,17 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chat_models import AzureChatOpenAI
 from langchain.chains import LLMChain
 import os
+import datetime
+import json
 from dotenv import load_dotenv
 
-# Load .env variables
+# Load environment variables
 load_dotenv()
 
-# Set up Azure LLM
+# Setup directories
+os.makedirs("chat_history", exist_ok=True)
+
+# Azure LLM
 llm = AzureChatOpenAI(
     openai_api_base=os.getenv("AZURE_OPENAI_API_BASE"),
     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
@@ -18,7 +23,7 @@ llm = AzureChatOpenAI(
     temperature=0.5,
 )
 
-# Chat prompt with contextual instructions
+# Prompt template
 prompt = ChatPromptTemplate.from_template("""
 You are a highly reliable and knowledgeable AI medical assistant. Your job is to provide accurate, evidence-based information about medical topics such as symptoms, diseases, treatments, preventions, medications, and health tips.
 
@@ -31,42 +36,94 @@ Respond to the following in a {tone} tone:
 "{topic}"
 """)
 
-# Streamlit UI
-st.set_page_config(page_title="🩺 Advanced Medical Assistant", layout="centered")
-st.title("🩺 AI Medical Assistant")
-
-# Sidebar tone and controls
-with st.sidebar:
-    st.subheader("🔧 Settings")
-    tone = st.selectbox("Choose response tone:", ["professional", "friendly", "reassuring", "neutral"])
-    if st.button("🧹 Clear Chat"):
-        st.session_state.messages = []
-        st.rerun()
-
-# Initialize chat history
+# ---------------------------
+# Initialize Session State
+# ---------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "chat_id" not in st.session_state:
+    st.session_state.chat_id = None
+if "title_set" not in st.session_state:
+    st.session_state.title_set = False
 
-# Display chat history
+# ---------------------------
+# Sidebar - Chat History
+# ---------------------------
+with st.sidebar:
+    
+    st.subheader("⚙️ Settings")
+    tone = st.selectbox("Choose tone:", ["professional", "friendly", "reassuring", "neutral"], key="tone")
+
+    st.markdown("---")
+
+    if st.button("🆕 New Chat"):
+        st.session_state.messages = []
+        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        st.session_state.title_set = False
+        st.rerun()
+    
+    st.title("📜 Chats")
+
+    # List previous chats
+    chat_dirs = sorted(os.listdir("chat_history"))
+    chat_titles = []
+    for folder in chat_dirs:
+        meta_path = f"chat_history/{folder}/metadata.json"
+        if os.path.exists(meta_path):
+            with open(meta_path, "r") as f:
+                title = json.load(f).get("title", folder)
+        else:
+            title = folder
+        chat_titles.append((title, folder))
+
+    for title, folder in chat_titles:
+        if st.button(title):
+            with open(f"chat_history/{folder}/chat.json", "r") as f:
+                st.session_state.messages = json.load(f)
+            st.session_state.chat_id = folder
+            st.session_state.title_set = True
+            st.rerun()
+
+    
+
+
+
+# ---------------------------
+# Main Chat Area
+# ---------------------------
+st.title("🩺 AI Medical Assistant")
+
+# Show chat messages
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-# LLM chain
-chain = LLMChain(llm=llm, prompt=prompt)
-
-# Input
+# Input box
 if user_input := st.chat_input("Ask your medical question..."):
     st.chat_message("user").write(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # Generate assistant response
+    # Set chat title from first user message
+    if not st.session_state.title_set:
+        meta_path = f"chat_history/{st.session_state.chat_id}/metadata.json"
+        os.makedirs(f"chat_history/{st.session_state.chat_id}", exist_ok=True)
+        with open(meta_path, "w") as f:
+            json.dump({"title": user_input.strip()}, f)
+        st.session_state.title_set = True
+
+    # Get assistant response
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                result = chain.invoke({"topic": user_input, "tone": tone})
+                chain = LLMChain(llm=llm, prompt=prompt)
+                result = chain.invoke({"topic": user_input, "tone": st.session_state.tone})
                 reply = result["text"].strip()
             except Exception as e:
-                reply = f"⚠️ An error occurred: {str(e)}"
+                reply = f"⚠️ Error: {str(e)}"
 
             st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
+
+    # Auto-save chat
+    chat_path = f"chat_history/{st.session_state.chat_id}/chat.json"
+    with open(chat_path, "w") as f:
+        json.dump(st.session_state.messages, f, indent=2)
