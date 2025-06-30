@@ -49,22 +49,13 @@ if "title_set" not in st.session_state:
 # ---------------------------
 # Sidebar - Chat History
 # ---------------------------
+
 with st.sidebar:
-    
     st.subheader("⚙️ Settings")
     tone = st.selectbox("Choose tone:", ["professional", "friendly", "reassuring", "neutral"], key="tone")
-
     st.markdown("---")
-
-    if st.button("🆕 New Chat"):
-        st.session_state.messages = []
-        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        st.session_state.title_set = False
-        st.rerun()
-    
     st.title("📜 Chats")
 
-    # List previous chats
     chat_dirs = sorted(os.listdir("chat_history"))
     chat_titles = []
     for folder in chat_dirs:
@@ -76,16 +67,31 @@ with st.sidebar:
             title = folder
         chat_titles.append((title, folder))
 
-    for title, folder in chat_titles:
-        if st.button(title):
-            with open(f"chat_history/{folder}/chat.json", "r") as f:
-                st.session_state.messages = json.load(f)
-            st.session_state.chat_id = folder
-            st.session_state.title_set = True
-            st.rerun()
+    for i, (title, folder) in enumerate(chat_titles):
+        cols = st.columns([0.75, 0.25])
+        with cols[0]:
+            if st.button(title, key=f"load_{i}"):
+                with open(f"chat_history/{folder}/chat.json", "r") as f:
+                    st.session_state.messages = json.load(f)
+                st.session_state.chat_id = folder
+                st.session_state.title_set = True
+                st.rerun()
+        with cols[1]:
+            if st.button("🗑️", key=f"delete_{i}"):
+                if st.session_state.get("chat_id") == folder:
+                    st.session_state.messages = []
+                    st.session_state.chat_id = None
+                    st.session_state.title_set = False
+                import shutil
+                shutil.rmtree(f"chat_history/{folder}", ignore_errors=True)
+                st.success(f"Deleted chat: {title}")
+                st.rerun()
 
-    
-
+    if st.button("🆕 New Chat"):
+        st.session_state.messages = []
+        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        st.session_state.title_set = False
+        st.rerun()
 
 
 # ---------------------------
