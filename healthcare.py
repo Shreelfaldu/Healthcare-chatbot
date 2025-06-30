@@ -23,8 +23,8 @@ llm = AzureChatOpenAI(
     temperature=0.5,
 )
 
-# Prompt template
-prompt = ChatPromptTemplate.from_template("""
+# Prompt template for main assistant
+chat_prompt = ChatPromptTemplate.from_template("""
 You are a highly reliable and knowledgeable AI medical assistant. Your job is to provide accurate, evidence-based information about medical topics such as symptoms, diseases, treatments, preventions, medications, and health tips.
 
 Always respond in a clear and concise manner, using plain language understandable to a general audience.
@@ -32,8 +32,17 @@ Always respond in a clear and concise manner, using plain language understandabl
 If a question seems to require a personal diagnosis, medical opinion, or is an emergency, respond with:
 "I'm not qualified to provide that information. Please consult a licensed healthcare professional."
 
-Respond to the following in a {tone} tone:
+Here is the previous conversation for context:
+{chat_history}
+
+Respond to the following user message in a {tone} tone:
 "{topic}"
+""")
+
+# Prompt template for title generation
+title_prompt = ChatPromptTemplate.from_template("""
+Give a short, 3 to 6 word topic title for this medical query:
+"{query}"
 """)
 
 # ---------------------------
@@ -49,7 +58,6 @@ if "title_set" not in st.session_state:
 # ---------------------------
 # Sidebar - Chat History
 # ---------------------------
-
 with st.sidebar:
     st.subheader("⚙️ Settings")
     tone = st.selectbox("Choose tone:", ["professional", "friendly", "reassuring", "neutral"], key="tone")
@@ -93,7 +101,6 @@ with st.sidebar:
         st.session_state.title_set = False
         st.rerun()
 
-
 # ---------------------------
 # Main Chat Area
 # ---------------------------
@@ -108,20 +115,40 @@ if user_input := st.chat_input("Ask your medical question..."):
     st.chat_message("user").write(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # Set chat title from first user message
+    # Set chat title from first user message using LLM
     if not st.session_state.title_set:
         meta_path = f"chat_history/{st.session_state.chat_id}/metadata.json"
         os.makedirs(f"chat_history/{st.session_state.chat_id}", exist_ok=True)
+
+        try:
+            title_chain = LLMChain(llm=llm, prompt=title_prompt)
+            title_result = title_chain.invoke({"query": user_input})
+            brief_title = title_result["text"].strip()
+        except Exception as e:
+            brief_title = user_input.strip().split()[0:5]  # fallback
+            brief_title = " ".join(brief_title)
+
         with open(meta_path, "w") as f:
-            json.dump({"title": user_input.strip()}, f)
+            json.dump({"title": brief_title}, f)
         st.session_state.title_set = True
 
     # Get assistant response
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                chain = LLMChain(llm=llm, prompt=prompt)
-                result = chain.invoke({"topic": user_input, "tone": st.session_state.tone})
+                # Prepare chat history for context (exclude current user message)
+                history_text = ""
+                for msg in st.session_state.messages[:-1]:
+                    role = "User" if msg["role"] == "user" else "Assistant"
+                    history_text += f"{role}: {msg['content']}\n"
+
+                # Invoke LLM with context
+                chain = LLMChain(llm=llm, prompt=chat_prompt)
+                result = chain.invoke({
+                    "topic": user_input,
+                    "tone": st.session_state.tone,
+                    "chat_history": history_text
+                })
                 reply = result["text"].strip()
             except Exception as e:
                 reply = f"⚠️ Error: {str(e)}"
