@@ -208,15 +208,22 @@ Give a short, 3 to 6 word topic title for this medical query:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_id" not in st.session_state:
-    st.session_state.chat_id = None
+    st.session_state.chat_id = None # Explicitly set to None initially
 if "title_set" not in st.session_state:
-    st.session_state.title_set = False
+    st.session_state.title_set = False # Explicitly set to False initially
+
+# --- Helper Function to Get or Create Chat ID ---
+def get_or_create_chat_id():
+    if st.session_state.chat_id is None:
+        # Create a new chat ID if none exists
+        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return st.session_state.chat_id
 
 # ---------------------------
 # Sidebar - Chat History
 # ---------------------------
 with st.sidebar:
-    st.subheader("⚙️ Settings", divider='rainbow') # Added a divider for visual separation
+    st.subheader("⚙️ Settings", divider='rainbow')
     tone = st.selectbox("Choose tone:", ["professional", "friendly", "reassuring", "neutral"], key="tone")
     st.markdown("---")
     st.title("📜 Chats")
@@ -226,19 +233,22 @@ with st.sidebar:
     for folder in chat_dirs:
         meta_path = f"chat_history/{folder}/metadata.json"
         if os.path.exists(meta_path):
-            with open(meta_path, "r") as f:
-                title = json.load(f).get("title", folder)
+            try:
+                with open(meta_path, "r") as f:
+                    title = json.load(f).get("title", folder)
+            except (FileNotFoundError, json.JSONDecodeError):
+                title = folder # Fallback if metadata is bad
         else:
             title = folder
         chat_titles.append((title, folder))
 
     for i, (title, folder) in enumerate(chat_titles):
-        # Using columns to place title and delete button side-by-side
         cols = st.columns([0.75, 0.25])
         with cols[0]:
             if st.button(title, key=f"load_{i}"):
                 try:
-                    with open(f"chat_history/{folder}/chat.json", "r") as f:
+                    chat_path = f"chat_history/{folder}/chat.json"
+                    with open(chat_path, "r") as f:
                         st.session_state.messages = json.load(f)
                     st.session_state.chat_id = folder
                     st.session_state.title_set = True
@@ -262,7 +272,7 @@ with st.sidebar:
     # Styling for the "New Chat" button
     if st.button("🆕 New Chat", key="new_chat_button"):
         st.session_state.messages = []
-        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        st.session_state.chat_id = None # Reset chat_id to trigger creation in get_or_create_chat_id
         st.session_state.title_set = False
         st.rerun()
 
@@ -280,14 +290,13 @@ if user_input := st.chat_input("Ask your medical question..."):
     st.chat_message("user").write(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
+    # Get or create chat_id before using it
+    current_chat_id = get_or_create_chat_id()
+
     # Set chat title from first user message using LLM
     if not st.session_state.title_set:
-        # Ensure chat_id is set if this is a brand new chat
-        if st.session_state.chat_id is None:
-            st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-        meta_path = f"chat_history/{st.session_state.chat_id}/metadata.json"
-        os.makedirs(f"chat_history/{st.session_state.chat_id}", exist_ok=True)
+        meta_path = f"chat_history/{current_chat_id}/metadata.json"
+        os.makedirs(os.path.dirname(meta_path), exist_ok=True) # Ensure directory exists
 
         try:
             title_chain = LLMChain(llm=llm, prompt=title_prompt)
@@ -300,7 +309,10 @@ if user_input := st.chat_input("Ask your medical question..."):
         with open(meta_path, "w") as f:
             json.dump({"title": brief_title}, f)
         st.session_state.title_set = True
-        st.rerun() # Rerun to update sidebar immediately if title was just set
+        # Rerun here. If chat_id was just created, this rerun will ensure
+        # the sidebar is updated, and the main area continues with the new ID.
+        st.rerun()
+
 
     # Get assistant response
     with st.chat_message("assistant"):
@@ -308,7 +320,6 @@ if user_input := st.chat_input("Ask your medical question..."):
             try:
                 # Prepare chat history for context (exclude current user message)
                 history_text = ""
-                # Ensure we don't include the very last message (the current user input)
                 for msg in st.session_state.messages[:-1]:
                     role = "User" if msg["role"] == "user" else "Assistant"
                     history_text += f"{role}: {msg['content']}\n"
@@ -329,8 +340,8 @@ if user_input := st.chat_input("Ask your medical question..."):
 
     # Auto-save chat final version
     # Ensure chat_id is set before attempting to save
-    if st.session_state.chat_id:
-        chat_path = f"chat_history/{st.session_state.chat_id}/chat.json"
-        os.makedirs(os.path.dirname(chat_path), exist_ok=True) # Ensure directory exists
+    if current_chat_id: # Use the guaranteed chat_id
+        chat_path = f"chat_history/{current_chat_id}/chat.json"
+        os.makedirs(os.path.dirname(chat_path), exist_ok=True)
         with open(chat_path, "w") as f:
             json.dump(st.session_state.messages, f, indent=2)
