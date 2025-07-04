@@ -10,163 +10,6 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# --- Define Color Palette ---
-PRIMARY_COLOR = "#504B38"      # Dark Brown/Khaki for text, primary elements
-SECONDARY_COLOR = "#B9B28A"    # Muted Olive/Khaki for accents, borders
-ACCENT_COLOR = "#EBE5C2"       # Pale Yellow for secondary backgrounds, highlights
-BACKGROUND_COLOR = "#F8F3D9"   # Light Cream for main background
-
-# --- Streamlit Page Configuration ---
-st.set_page_config(
-    page_title="AI Medical Assistant",
-    page_icon="🩺",
-    layout="centered",
-    initial_sidebar_state="expanded",
-)
-
-# --- Custom CSS for Styling ---
-def custom_css():
-    return f"""
-<style>
-    /* General Body Styling */
-    body {{
-        background-color: {BACKGROUND_COLOR};
-        color: {PRIMARY_COLOR};
-        font-family: 'Arial', sans-serif; /* Example font */
-    }}
-
-    /* Streamlit Core Components */
-    .stApp {{
-        background-color: {BACKGROUND_COLOR};
-        color: {PRIMARY_COLOR};
-    }}
-
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {{
-        background-color: {ACCENT_COLOR};
-        padding: 20px;
-        border-radius: 10px;
-    }}
-    .stSidebarContent {{
-        padding: 20px;
-    }}
-    .stSidebarContent h2, .stSidebarContent h3 {{
-        color: {PRIMARY_COLOR};
-    }}
-    .stSidebarContent .stButton>button {{
-        width: 100%;
-        background-color: {PRIMARY_COLOR};
-        color: {BACKGROUND_COLOR};
-        border: none;
-        padding: 10px 18px;
-        margin-bottom: 10px;
-        border-radius: 5px;
-        font-weight: bold;
-    }}
-    .stSidebarContent .stButton>button:hover {{
-        background-color: {SECONDARY_COLOR};
-        color: {PRIMARY_COLOR};
-    }}
-    .stSidebarContent .stButton>button[kind="secondary"] {{ /* For delete button if needed */
-        background-color: #f0f2f6; /* Lighter default for delete */
-        color: {PRIMARY_COLOR};
-    }}
-
-    /* Main Chat Area */
-    .stChatInputContainer {{
-        background-color: {ACCENT_COLOR};
-        border-radius: 10px;
-        padding: 10px;
-        margin-top: 20px;
-    }}
-    .stChatInputContainer textarea {{
-        background-color: {ACCENT_COLOR};
-        color: {PRIMARY_COLOR};
-        border: 1px solid {SECONDARY_COLOR};
-    }}
-    .stChatInputContainer textarea::placeholder {{
-        color: {PRIMARY_COLOR} !important;
-        opacity: 0.7;
-    }}
-    .stTextInput>div>div>input {{
-        background-color: {ACCENT_COLOR};
-        color: {PRIMARY_COLOR};
-        border: 1px solid {SECONDARY_COLOR};
-    }}
-
-    /* Chat Messages */
-    .stChatMessage {{
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-    }}
-    .stChatMessage[data-testid="stChatMessage"] {{ /* Targeting the container div for messages */
-        background-color: {BACKGROUND_COLOR}; /* Default for messages */
-        border: 1px solid {SECONDARY_COLOR};
-    }}
-    .stChatMessage:not([data-testid="stChatMessage"]):not([data-testid="stChatMessageUser"]) {{ /* Assistant messages */
-        background-color: {ACCENT_COLOR};
-        border: 1px solid {SECONDARY_COLOR};
-        color: {PRIMARY_COLOR};
-    }}
-    .stChatMessage[data-testid="stChatMessageUser"] {{ /* User messages */
-        background-color: {EBE5C2}; /* Using accent for user messages for contrast */
-        color: {PRIMARY_COLOR};
-        border: 1px solid {SECONDARY_COLOR};
-    }}
-    .stChatMessage .message-content {{ /* If you can target the content div directly */
-        color: {PRIMARY_COLOR};
-    }}
-
-    /* Title and Headers */
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
-        color: {PRIMARY_COLOR};
-    }}
-
-    /* Buttons */
-    .stButton>button {{
-        background-color: {PRIMARY_COLOR};
-        color: {BACKGROUND_COLOR};
-        border: none;
-        padding: 10px 20px;
-        margin: 5px 0;
-        border-radius: 5px;
-        font-weight: bold;
-    }}
-    .stButton>button:hover {{
-        background-color: {SECONDARY_COLOR};
-        color: {PRIMARY_COLOR};
-    }}
-    .stButton>button[kind="secondary"] {{ /* Styling for 'New Chat' button if it were secondary */
-        background-color: {SECONDARY_COLOR};
-        color: {PRIMARY_COLOR};
-    }}
-
-    /* Loading Spinners */
-    .stSpinner {{
-        color: {PRIMARY_COLOR};
-    }}
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {{
-        width: 8px;
-    }}
-    ::-webkit-scrollbar-track {{
-        background: {ACCENT_COLOR};
-        border-radius: 4px;
-    }}
-    ::-webkit-scrollbar-thumb {{
-        background: {SECONDARY_COLOR};
-        border-radius: 4px;
-    }}
-    ::-webkit-scrollbar-thumb:hover {{
-        background: {PRIMARY_COLOR};
-    }}
-</style>
-"""
-
-st.markdown(custom_css(), unsafe_allow_html=True)
-
 # Setup directories
 os.makedirs("chat_history", exist_ok=True)
 
@@ -208,22 +51,15 @@ Give a short, 3 to 6 word topic title for this medical query:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_id" not in st.session_state:
-    st.session_state.chat_id = None # Explicitly set to None initially
+    st.session_state.chat_id = None
 if "title_set" not in st.session_state:
-    st.session_state.title_set = False # Explicitly set to False initially
-
-# --- Helper Function to Get or Create Chat ID ---
-def get_or_create_chat_id():
-    if st.session_state.chat_id is None:
-        # Create a new chat ID if none exists
-        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    return st.session_state.chat_id
+    st.session_state.title_set = False
 
 # ---------------------------
 # Sidebar - Chat History
 # ---------------------------
 with st.sidebar:
-    st.subheader("⚙️ Settings", divider='rainbow')
+    st.subheader("⚙️ Settings")
     tone = st.selectbox("Choose tone:", ["professional", "friendly", "reassuring", "neutral"], key="tone")
     st.markdown("---")
     st.title("📜 Chats")
@@ -233,11 +69,8 @@ with st.sidebar:
     for folder in chat_dirs:
         meta_path = f"chat_history/{folder}/metadata.json"
         if os.path.exists(meta_path):
-            try:
-                with open(meta_path, "r") as f:
-                    title = json.load(f).get("title", folder)
-            except (FileNotFoundError, json.JSONDecodeError):
-                title = folder # Fallback if metadata is bad
+            with open(meta_path, "r") as f:
+                title = json.load(f).get("title", folder)
         else:
             title = folder
         chat_titles.append((title, folder))
@@ -246,20 +79,13 @@ with st.sidebar:
         cols = st.columns([0.75, 0.25])
         with cols[0]:
             if st.button(title, key=f"load_{i}"):
-                try:
-                    chat_path = f"chat_history/{folder}/chat.json"
-                    with open(chat_path, "r") as f:
-                        st.session_state.messages = json.load(f)
-                    st.session_state.chat_id = folder
-                    st.session_state.title_set = True
-                    st.rerun()
-                except FileNotFoundError:
-                    st.error(f"Chat file not found for {title}.")
-                except json.JSONDecodeError:
-                    st.error(f"Error decoding chat history for {title}.")
-
+                with open(f"chat_history/{folder}/chat.json", "r") as f:
+                    st.session_state.messages = json.load(f)
+                st.session_state.chat_id = folder
+                st.session_state.title_set = True
+                st.rerun()
         with cols[1]:
-            if st.button("🗑️", key=f"delete_{i}", help=f"Delete chat: {title}"):
+            if st.button("🗑️", key=f"delete_{i}"):
                 if st.session_state.get("chat_id") == folder:
                     st.session_state.messages = []
                     st.session_state.chat_id = None
@@ -269,10 +95,9 @@ with st.sidebar:
                 st.success(f"Deleted chat: {title}")
                 st.rerun()
 
-    # Styling for the "New Chat" button
-    if st.button("🆕 New Chat", key="new_chat_button"):
+    if st.button("🆕 New Chat"):
         st.session_state.messages = []
-        st.session_state.chat_id = None # Reset chat_id to trigger creation in get_or_create_chat_id
+        st.session_state.chat_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         st.session_state.title_set = False
         st.rerun()
 
@@ -290,13 +115,10 @@ if user_input := st.chat_input("Ask your medical question..."):
     st.chat_message("user").write(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # Get or create chat_id before using it
-    current_chat_id = get_or_create_chat_id()
-
     # Set chat title from first user message using LLM
     if not st.session_state.title_set:
-        meta_path = f"chat_history/{current_chat_id}/metadata.json"
-        os.makedirs(os.path.dirname(meta_path), exist_ok=True) # Ensure directory exists
+        meta_path = f"chat_history/{st.session_state.chat_id}/metadata.json"
+        os.makedirs(f"chat_history/{st.session_state.chat_id}", exist_ok=True)
 
         try:
             title_chain = LLMChain(llm=llm, prompt=title_prompt)
@@ -309,10 +131,6 @@ if user_input := st.chat_input("Ask your medical question..."):
         with open(meta_path, "w") as f:
             json.dump({"title": brief_title}, f)
         st.session_state.title_set = True
-        # Rerun here. If chat_id was just created, this rerun will ensure
-        # the sidebar is updated, and the main area continues with the new ID.
-        st.rerun()
-
 
     # Get assistant response
     with st.chat_message("assistant"):
@@ -339,9 +157,6 @@ if user_input := st.chat_input("Ask your medical question..."):
             st.session_state.messages.append({"role": "assistant", "content": reply})
 
     # Auto-save chat final version
-    # Ensure chat_id is set before attempting to save
-    if current_chat_id: # Use the guaranteed chat_id
-        chat_path = f"chat_history/{current_chat_id}/chat.json"
-        os.makedirs(os.path.dirname(chat_path), exist_ok=True)
-        with open(chat_path, "w") as f:
-            json.dump(st.session_state.messages, f, indent=2)
+    chat_path = f"chat_history/{st.session_state.chat_id}/chat.json"
+    with open(chat_path, "w") as f:
+        json.dump(st.session_state.messages, f, indent=2)
