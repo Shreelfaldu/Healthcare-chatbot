@@ -8,3 +8,4 @@ azure-ai-ml
 langchain-community
 langchain-openai
 langchain-core
+faiss-cpu
